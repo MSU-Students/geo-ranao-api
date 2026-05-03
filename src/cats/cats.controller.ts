@@ -8,7 +8,7 @@ export class CatsController {
     return 'This action adds a new cat';
   }
     @Get()
-    findAll(@Req() request: Request): string {
-        return 'This action returns all cats';
+    findAll() {
+        return [{ id: 1, name: 'Fluffy' }, { id: 2, name: 'Mittens' }];
     }
 }
