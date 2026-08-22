@@ -7,16 +7,16 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
   const config = new DocumentBuilder()
-    .setTitle('Cats example')
-    .setDescription('The cats API description')
+    .setTitle('Geo Ranao API')
+    .setDescription('Auth, researcher accounts, and field data for the Geo Ranao project')
     .setVersion('1.0')
-    .addTag('cats')
     .addBearerAuth()
     .build();
   const documentFactory = () => SwaggerModule.createDocument(app, config);
-  app.useGlobalPipes(new ValidationPipe({ whitelist: true }));
+  app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
   app.enableCors({
-    origin: '*',
+    origin: process.env.FRONTEND_URL ?? true,
+    credentials: true,
   });
   SwaggerModule.setup('api', app, documentFactory);
   await app.listen(process.env.PORT ?? 3333);

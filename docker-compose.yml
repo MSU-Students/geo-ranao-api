@@ -1,0 +1,21 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: geo-ranao-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${DB_USERNAME:-georanao}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-georanao_dev_password}
+      POSTGRES_DB: ${DB_NAME:-geo_ranao}
+    ports:
+      - '${DB_PORT:-5432}:5432'
+    volumes:
+      - geo_ranao_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${DB_USERNAME:-georanao} -d ${DB_NAME:-geo_ranao}']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  geo_ranao_pgdata:

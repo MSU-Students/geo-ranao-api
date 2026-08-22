@@ -1,8 +1,10 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsEmail, IsNotEmpty, IsOptional, IsString, MinLength, IsIn } from 'class-validator';
+import { IsEmail, IsNotEmpty, IsOptional, IsString, MinLength } from 'class-validator';
+import { Match } from './match.decorator';
 
 export class RegisterDto {
-  @ApiProperty()
+  // ── Basic Identity ──
+  @ApiProperty({ description: 'Full name of the researcher' })
   @IsString()
   @IsNotEmpty()
   fullName: string;
@@ -11,18 +13,36 @@ export class RegisterDto {
   @IsEmail()
   email: string;
 
-  @ApiProperty()
+  @ApiProperty({ minLength: 8 })
   @IsString()
-  @MinLength(6)
+  @MinLength(8)
   password: string;
 
-  @ApiProperty({ required: false })
+  @ApiProperty({ description: 'Must match password' })
+  @IsString()
+  @Match('password', { message: 'confirmPassword must match password' })
+  confirmPassword: string;
+
+  // ── Institutional Credentials ──
+  @ApiProperty({ description: 'Affiliation or institution, e.g. "Academic Researcher"' })
+  @IsString()
+  @IsNotEmpty()
+  affiliation: string;
+
+  @ApiProperty({
+    required: false,
+    description: 'Department or role, e.g. "Research Assistant"',
+  })
   @IsOptional()
   @IsString()
-  phoneNumber?: string;
+  departmentRole?: string;
 
-  @ApiProperty({ enum: ['VIEWER', 'RESEARCHER', 'ADMIN'], required: false })
-  @IsOptional()
-  @IsIn(['VIEWER', 'RESEARCHER', 'ADMIN'])
-  role?: 'VIEWER' | 'RESEARCHER' | 'ADMIN';
+  // ── Application Context ──
+  @ApiProperty({
+    description:
+      'Purpose of request, e.g. "Studying water quality in the shallow depth part using geographic spatial data"',
+  })
+  @IsString()
+  @MinLength(10)
+  purposeOfRequest: string;
 }
