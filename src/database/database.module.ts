@@ -5,11 +5,10 @@ import { resolveDataSourceOptions } from './typeorm.config';
 @Module({
   imports: [
     TypeOrmModule.forRootAsync({
-      useFactory: () =>
-        resolveDataSourceOptions(
-          [__dirname + '/../**/*.entity{.ts,.js}'],
-          [__dirname + '/migrations/*{.ts,.js}'],
-        ),
+      useFactory: () => ({
+        ...resolveDataSourceOptions([], [__dirname + '/migrations/*{.ts,.js}']),
+        autoLoadEntities: true,
+      }),
     }),
   ],
 })

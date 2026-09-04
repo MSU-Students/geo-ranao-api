@@ -1,4 +1,5 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
 // Backs fish observation photo storage — replaces local disk so the API can
@@ -9,10 +10,14 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js';
 export class SupabaseStorageService implements OnModuleInit {
   private readonly logger = new Logger(SupabaseStorageService.name);
   private client: SupabaseClient | null = null;
-  readonly bucket = process.env.SUPABASE_STORAGE_BUCKET ?? 'fish-photos';
+  readonly bucket: string;
+
+  constructor(private readonly configService: ConfigService) {
+    this.bucket = this.configService.get<string>('SUPABASE_STORAGE_BUCKET') ?? 'fish-photos';
+  }
 
   get configured(): boolean {
-    return !!(process.env.SUPABASE_URL && process.env.SUPABASE_SECRET_KEY);
+    return !!(this.configService.get<string>('SUPABASE_URL') && this.configService.get<string>('SUPABASE_SECRET_KEY'));
   }
 
   async onModuleInit(): Promise<void> {
@@ -20,9 +25,11 @@ export class SupabaseStorageService implements OnModuleInit {
       this.logger.warn('SUPABASE_URL / SUPABASE_SECRET_KEY not set — photo uploads will fail until configured.');
       return;
     }
-    this.client = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SECRET_KEY!, {
-      auth: { persistSession: false },
-    });
+    this.client = createClient(
+      this.configService.get<string>('SUPABASE_URL')!,
+      this.configService.get<string>('SUPABASE_SECRET_KEY')!,
+      { auth: { persistSession: false } },
+    );
     await this.ensureBucket();
   }
 

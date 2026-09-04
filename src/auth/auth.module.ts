@@ -3,8 +3,8 @@ import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { UsersModule } from '../users/users.module';
 import { ActivityLogModule } from '../activity-log/activity-log.module';
+import { ConfigService } from '@nestjs/config';
 import { JwtModule } from '@nestjs/jwt';
-import { jwtConstants } from './constants';
 import { PassportModule } from '@nestjs/passport';
 import { JwtStrategy } from './jwt.strategy';
 
@@ -14,9 +14,10 @@ import { JwtStrategy } from './jwt.strategy';
     ActivityLogModule,
     PassportModule.register({ defaultStrategy: 'jwt' }),
     JwtModule.registerAsync({
-      useFactory: async () => ({
+      inject: [ConfigService],
+      useFactory: (configService: ConfigService) => ({
         global: true,
-        secret: process.env.JWT_SECRET ?? jwtConstants.secret,
+        secret: configService.get<string>('JWT_SECRET') ?? 'THE QUICK BROWN FOX JUMPS OVER THE LAZY DOG, haha',
         signOptions: { expiresIn: '1h' },
       }),
     }),

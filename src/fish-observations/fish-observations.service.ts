@@ -1,5 +1,6 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import { ConfigService } from '@nestjs/config';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { FindOptionsWhere, LessThan, Repository } from 'typeorm';
 import { randomUUID } from 'crypto';
@@ -30,6 +31,7 @@ export class FishObservationsService {
     @InjectRepository(FishObservationPhotoEntity)
     private readonly photoRepo: Repository<FishObservationPhotoEntity>,
     private readonly storageService: SupabaseStorageService,
+    private readonly configService: ConfigService,
   ) {}
 
   async create(
@@ -41,7 +43,7 @@ export class FishObservationsService {
     const saved = await this.repo.save(observation);
 
     if (files?.length) {
-      const retentionDays = Number(process.env.PHOTO_RETENTION_DAYS ?? 14);
+      const retentionDays = Number(this.configService.get<string>('PHOTO_RETENTION_DAYS') ?? 14);
       const expiresAt = new Date(Date.now() + retentionDays * 24 * 60 * 60 * 1000);
 
       const photos = await Promise.all(
