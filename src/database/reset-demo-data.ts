@@ -4,6 +4,7 @@ import { UserEntity, UserRole } from '../users/entities/user.entity';
 import { FishObservationEntity } from '../fish-observations/entities/fish-observation.entity';
 import { FishObservationPhotoEntity } from '../fish-observations/entities/fish-observation-photo.entity';
 import { WaterQualityReadingEntity } from '../water-quality/entities/water-quality-reading.entity';
+import { BathymetrySurveyEntity } from '../bathymetry/entities/bathymetry-survey.entity';
 import { ActivityLogEntity } from '../activity-log/entities/activity-log.entity';
 
 // Standalone script — runs outside Nest's DI container (same as data-source.ts
@@ -31,6 +32,7 @@ async function reset() {
   const photoRepo = dataSource.getRepository(FishObservationPhotoEntity);
   const fishRepo = dataSource.getRepository(FishObservationEntity);
   const wqRepo = dataSource.getRepository(WaterQualityReadingEntity);
+  const bathyRepo = dataSource.getRepository(BathymetrySurveyEntity);
   const logRepo = dataSource.getRepository(ActivityLogEntity);
   const userRepo = dataSource.getRepository(UserEntity);
 
@@ -47,6 +49,9 @@ async function reset() {
 
   const wqResult = await wqRepo.createQueryBuilder().delete().execute();
   console.log(`Deleted ${wqResult.affected ?? 0} water quality reading(s).`);
+
+  const bathyResult = await bathyRepo.createQueryBuilder().delete().execute();
+  console.log(`Deleted ${bathyResult.affected ?? 0} bathymetry survey(s).`);
 
   const logResult = await logRepo.createQueryBuilder().delete().execute();
   console.log(`Deleted ${logResult.affected ?? 0} activity log entr(y/ies).`);

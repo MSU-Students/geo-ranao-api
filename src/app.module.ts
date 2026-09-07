@@ -10,6 +10,7 @@ import { ActivityLogModule } from './activity-log/activity-log.module';
 import { StationsModule } from './stations/stations.module';
 import { FishObservationsModule } from './fish-observations/fish-observations.module';
 import { WaterQualityModule } from './water-quality/water-quality.module';
+import { BathymetryModule } from './bathymetry/bathymetry.module';
 
 @Module({
   imports: [
@@ -22,6 +23,7 @@ import { WaterQualityModule } from './water-quality/water-quality.module';
     StationsModule,
     FishObservationsModule,
     WaterQualityModule,
+    BathymetryModule,
   ],
   controllers: [AppController],
   providers: [AppService],

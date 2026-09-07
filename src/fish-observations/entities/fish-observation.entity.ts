@@ -69,11 +69,10 @@ export class FishObservationEntity {
   @Column({ type: 'varchar', nullable: true })
   sizeCategory?: string | null;
 
-  @Column({ type: 'double precision', nullable: true })
-  latitude?: number | null;
-
-  @Column({ type: 'double precision', nullable: true })
-  longitude?: number | null;
+  // Free text "lat, lng" (e.g. "7.9900, 124.0700") — kept as one field since
+  // that's how every form collects it and every view displays it back.
+  @Column({ type: 'varchar', nullable: true })
+  coordinates?: string | null;
 
   @Column({ type: 'varchar', nullable: true })
   municipal?: string | null;
