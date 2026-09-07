@@ -26,15 +26,18 @@ export class BathymetryController {
   ) {}
 
   @Post()
-  @ApiOperation({ summary: 'Submit a cleaned bathymetry survey (depth soundings), pending admin review' })
-  @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: 'Submit a cleaned bathymetry survey (depth soundings) — publishes immediately (ADMIN only)' })
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN')
   async create(@Request() req: AuthenticatedRequest, @Body() dto: CreateBathymetrySurveyDto) {
-    const created = await this.bathymetryService.create(req.user.sub, dto);
-    const actor = await this.usersService.findById(req.user.sub);
+    const admin = await this.usersService.findById(req.user.sub);
+    const actor = admin?.fullName ?? req.user.email;
+    const created = await this.bathymetryService.create(req.user.sub, dto, actor);
     await this.activityLogService.log(
-      actor?.fullName ?? req.user.email,
-      'Uploaded Bathymetry Survey',
+      actor,
+      'Published Bathymetry Survey',
       `${created.label} — ${created.pointCount} sounding${created.pointCount === 1 ? '' : 's'}`,
+      ActivitySeverity.POSITIVE,
     );
     return created;
   }

@@ -16,14 +16,20 @@ export class BathymetryService {
     private readonly repo: Repository<BathymetrySurveyEntity>,
   ) {}
 
-  async create(researcherId: number, dto: CreateBathymetrySurveyDto): Promise<BathymetrySurveyEntity> {
+  // Only admins can submit a survey (enforced by the controller's guard),
+  // and there's no one else to review an admin's own upload — so it
+  // publishes immediately instead of sitting PENDING in the review queue.
+  async create(adminId: number, dto: CreateBathymetrySurveyDto, uploadedBy: string): Promise<BathymetrySurveyEntity> {
     const survey = this.repo.create({
-      researcherId,
+      researcherId: adminId,
       label: dto.label,
       surveyDate: dto.surveyDate,
       points: dto.points,
       pointCount: dto.points.length,
       cleanedCount: dto.cleanedCount,
+      reviewStatus: ReviewStatus.APPROVED,
+      reviewedBy: uploadedBy,
+      reviewedAt: new Date(),
     });
     return this.repo.save(survey);
   }
