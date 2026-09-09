@@ -1,4 +1,15 @@
-import { Column, CreateDateColumn, Entity, Index, PrimaryGeneratedColumn, UpdateDateColumn } from 'typeorm';
+import {
+  AfterLoad,
+  Column,
+  CreateDateColumn,
+  Entity,
+  Index,
+  OneToMany,
+  PrimaryGeneratedColumn,
+  UpdateDateColumn,
+} from 'typeorm';
+import { latOf, lngOf } from '../../common/geo';
+import { BathymetrySoundingEntity } from './bathymetry-sounding.entity';
 
 export enum ReviewStatus {
   PENDING = 'PENDING',
@@ -16,9 +27,7 @@ export interface DepthSounding {
 // (deduplicated, range-checked, filtered to the lake boundary, outliers
 // flagged) before submission. Interpolating the points into a grid and
 // extracting contour lines happens on demand wherever the survey is
-// rendered (buildDepthGridFromPoints / marchContourLevel on the frontend),
-// so only the cleaned source points need to be stored here — same approach
-// the admin's old session-only preview used, just persisted and reviewed.
+// rendered (buildDepthGridFromPoints / marchContourLevel on the frontend).
 @Entity('bathymetry_surveys')
 export class BathymetrySurveyEntity {
   @PrimaryGeneratedColumn()
@@ -34,7 +43,13 @@ export class BathymetrySurveyEntity {
   @Column({ type: 'date' })
   surveyDate: string;
 
-  @Column({ type: 'jsonb' })
+  // Individual soundings live in bathymetry_soundings (one PostGIS point +
+  // depth per row, see that entity) so they can be spatially indexed and
+  // queried on their own — `points` below is reassembled from that relation
+  // on load, in the same [{lat,lng,depth}] shape clients already use.
+  @OneToMany(() => BathymetrySoundingEntity, (sounding) => sounding.survey)
+  soundings?: BathymetrySoundingEntity[];
+
   points: DepthSounding[];
 
   @Column({ type: 'int' })
@@ -63,4 +78,16 @@ export class BathymetrySurveyEntity {
 
   @UpdateDateColumn({ type: 'timestamptz' })
   updatedAt: Date;
+
+  @AfterLoad()
+  private hydratePoints(): void {
+    if (this.soundings) {
+      this.points = this.soundings.map((sounding) => ({
+        lat: latOf(sounding.location),
+        lng: lngOf(sounding.location),
+        depth: sounding.depth,
+      }));
+      this.soundings = undefined;
+    }
+  }
 }

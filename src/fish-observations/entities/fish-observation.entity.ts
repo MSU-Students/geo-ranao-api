@@ -1,4 +1,5 @@
 import {
+  AfterLoad,
   Column,
   CreateDateColumn,
   Entity,
@@ -8,6 +9,8 @@ import {
   UpdateDateColumn,
 } from 'typeorm';
 import { FishObservationPhotoEntity } from './fish-observation-photo.entity';
+import type { GeoPoint } from '../../common/geo';
+import { formatLatLngString } from '../../common/geo';
 
 export enum FishCategory {
   ENDEMIC = 'ENDEMIC',
@@ -69,9 +72,14 @@ export class FishObservationEntity {
   @Column({ type: 'varchar', nullable: true })
   sizeCategory?: string | null;
 
-  // Free text "lat, lng" (e.g. "7.9900, 124.0700") — kept as one field since
-  // that's how every form collects it and every view displays it back.
-  @Column({ type: 'varchar', nullable: true })
+  // A real PostGIS point rather than the free-text "lat, lng" column this
+  // used to be. `coordinates` below is a virtual field derived from it on
+  // load, so the API keeps returning the same "lat, lng" string the
+  // frontend already expects.
+  @Index({ spatial: true })
+  @Column({ type: 'geography', spatialFeatureType: 'Point', srid: 4326, nullable: true })
+  location?: GeoPoint | null;
+
   coordinates?: string | null;
 
   @Column({ type: 'varchar', nullable: true })
@@ -107,4 +115,9 @@ export class FishObservationEntity {
 
   @UpdateDateColumn({ type: 'timestamptz' })
   updatedAt: Date;
+
+  @AfterLoad()
+  private hydrateCoordinates(): void {
+    this.coordinates = this.location ? formatLatLngString(this.location) : null;
+  }
 }

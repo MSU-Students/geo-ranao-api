@@ -1,4 +1,6 @@
-import { Column, Entity, PrimaryColumn } from 'typeorm';
+import { AfterLoad, Column, Entity, Index, PrimaryColumn } from 'typeorm';
+import type { GeoPoint } from '../../common/geo';
+import { latOf, lngOf } from '../../common/geo';
 
 export enum StationZone {
   NEARSHORE = 'NEARSHORE',
@@ -18,12 +20,23 @@ export class StationEntity {
   @Column({ nullable: true })
   stationId?: string;
 
-  @Column({ type: 'double precision' })
-  latitude: number;
-
-  @Column({ type: 'double precision' })
-  longitude: number;
+  // A real PostGIS point rather than separate lat/lng columns, so spatial
+  // queries (nearest station, distance, containment) work later.
+  @Index({ spatial: true })
+  @Column({ type: 'geography', spatialFeatureType: 'Point', srid: 4326 })
+  location: GeoPoint;
 
   @Column({ type: 'enum', enum: StationZone })
   zone: StationZone;
+
+  // Not columns — derived from `location` so API responses keep the same
+  // latitude/longitude shape the frontend already reads.
+  latitude: number;
+  longitude: number;
+
+  @AfterLoad()
+  private splitLocation(): void {
+    this.latitude = latOf(this.location);
+    this.longitude = lngOf(this.location);
+  }
 }

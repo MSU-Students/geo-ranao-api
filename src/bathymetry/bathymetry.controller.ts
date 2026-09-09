@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, ParseIntPipe, Patch, Post, Query, Request, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, ParseIntPipe, Patch, Post, Query, Request, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { BathymetryService } from './bathymetry.service';
 import { CreateBathymetrySurveyDto } from './dto/create-bathymetry-survey.dto';
@@ -94,5 +94,22 @@ export class BathymetryController {
       ActivitySeverity.NEGATIVE,
     );
     return updated;
+  }
+
+  @Delete(':id')
+  @ApiOperation({ summary: 'Permanently delete a bathymetry survey — e.g. to retract a bad upload (ADMIN only)' })
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN')
+  async remove(@Param('id', ParseIntPipe) id: number, @Body() dto: ReviewActionDto, @Request() req: AuthenticatedRequest) {
+    const admin = await this.usersService.findById(req.user.sub);
+    const actor = admin?.fullName ?? req.user.email;
+    const removed = await this.bathymetryService.remove(id);
+    await this.activityLogService.log(
+      actor,
+      'Bathymetry Survey Deleted',
+      `${removed.label} — ${removed.pointCount} soundings${dto.reason ? ` — ${dto.reason}` : ''}`,
+      ActivitySeverity.NEGATIVE,
+    );
+    return { message: 'Bathymetry survey deleted' };
   }
 }

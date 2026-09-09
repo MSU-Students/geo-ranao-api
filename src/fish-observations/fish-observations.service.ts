@@ -14,6 +14,7 @@ import {
 import { FishObservationPhotoEntity } from './entities/fish-observation-photo.entity';
 import { CreateFishObservationDto } from './dto/create-fish-observation.dto';
 import { SupabaseStorageService } from '../storage/supabase-storage.service';
+import { parseLatLngString } from '../common/geo';
 
 export interface FishObservationFilter {
   status?: ReviewStatus;
@@ -39,7 +40,12 @@ export class FishObservationsService {
     dto: CreateFishObservationDto,
     files: Express.Multer.File[],
   ): Promise<FishObservationEntity> {
-    const observation = this.repo.create({ ...dto, researcherId });
+    const { coordinates, ...rest } = dto;
+    const observation = this.repo.create({
+      ...rest,
+      researcherId,
+      location: coordinates ? parseLatLngString(coordinates) : null,
+    });
     const saved = await this.repo.save(observation);
 
     if (files?.length) {

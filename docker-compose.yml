@@ -1,6 +1,10 @@
 services:
   postgres:
-    image: postgres:16-alpine
+    # postgis/postgis is the official postgres:16 image plus the PostGIS
+    # extension pre-installed — plain postgres:16-alpine doesn't ship it, so
+    # `CREATE EXTENSION postgis` (run automatically by TypeORM/migrations)
+    # fails against that image.
+    image: postgis/postgis:16-3.4
     container_name: geo-ranao-postgres
     restart: unless-stopped
     environment:

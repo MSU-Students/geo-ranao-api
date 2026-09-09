@@ -2,6 +2,7 @@ import * as bcrypt from 'bcrypt';
 import dataSource from './data-source';
 import { UserEntity, UserRole, AccountStatus } from '../users/entities/user.entity';
 import { StationEntity, StationZone } from '../stations/entities/station.entity';
+import { toGeoPoint } from '../common/geo';
 
 /**
  * Creates the first ADMIN account so someone can log in and start approving
@@ -90,8 +91,12 @@ async function seedStations() {
   }
 
   const rows = [
-    ...LAKE_SITES.map((s) => repo.create(s)),
-    ...RIVER_SITES.map((s) => repo.create({ ...s, stationId: undefined, zone: StationZone.RIVER })),
+    ...LAKE_SITES.map((s) =>
+      repo.create({ siteId: s.siteId, stationId: s.stationId, location: toGeoPoint(s.latitude, s.longitude), zone: s.zone }),
+    ),
+    ...RIVER_SITES.map((s) =>
+      repo.create({ siteId: s.siteId, location: toGeoPoint(s.latitude, s.longitude), zone: StationZone.RIVER }),
+    ),
   ];
   await repo.save(rows);
   console.log(`Seeded ${rows.length} stations (${LAKE_SITES.length} lake sites + ${RIVER_SITES.length} rivers).`);

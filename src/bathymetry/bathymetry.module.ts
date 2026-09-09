@@ -1,13 +1,18 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { BathymetrySurveyEntity } from './entities/bathymetry-survey.entity';
+import { BathymetrySoundingEntity } from './entities/bathymetry-sounding.entity';
 import { BathymetryService } from './bathymetry.service';
 import { BathymetryController } from './bathymetry.controller';
 import { UsersModule } from '../users/users.module';
 import { ActivityLogModule } from '../activity-log/activity-log.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([BathymetrySurveyEntity]), UsersModule, ActivityLogModule],
+  imports: [
+    TypeOrmModule.forFeature([BathymetrySurveyEntity, BathymetrySoundingEntity]),
+    UsersModule,
+    ActivityLogModule,
+  ],
   providers: [BathymetryService],
   controllers: [BathymetryController],
 })
