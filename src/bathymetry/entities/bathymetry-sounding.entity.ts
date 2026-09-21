@@ -1,12 +1,13 @@
-import { Column, Entity, Index, ManyToOne, PrimaryGeneratedColumn } from 'typeorm';
-import type { GeoPoint } from '../../common/geo';
+import { Column, CreateDateColumn, Entity, ManyToOne, PrimaryGeneratedColumn } from 'typeorm';
 import { BathymetrySurveyEntity } from './bathymetry-survey.entity';
+import { BathymetryPointEntity } from './bathymetry-point.entity';
 
-// One depth sounding within a survey — split out from the survey's old
-// `points` JSONB blob so each point is its own indexed PostGIS location.
-// A single opaque array-per-survey can't be spatially queried per point;
-// this shape is what nearest-sounding lookups, clipping to the lake
-// boundary, etc. need later.
+// One (survey, fixed point) reading — the average of every raw uploaded
+// sounding that snapped nearest to that fixed point in this survey. This is
+// an audit trail of what each survey contributed, not what rendering reads
+// from directly (see BathymetryPointEntity.currentDepth for that); it
+// exists so retracting a survey (BathymetryService.remove) can recompute
+// what each affected point's currentDepth should revert to.
 @Entity('bathymetry_soundings')
 export class BathymetrySoundingEntity {
   @PrimaryGeneratedColumn()
@@ -20,10 +21,15 @@ export class BathymetrySoundingEntity {
   @Column()
   surveyId: number;
 
-  @Index({ spatial: true })
-  @Column({ type: 'geography', spatialFeatureType: 'Point', srid: 4326 })
-  location: GeoPoint;
+  @ManyToOne(() => BathymetryPointEntity, { onDelete: 'RESTRICT' })
+  point: BathymetryPointEntity;
+
+  @Column()
+  pointId: number;
 
   @Column({ type: 'double precision' })
   depth: number;
+
+  @CreateDateColumn({ type: 'timestamptz' })
+  createdAt: Date;
 }

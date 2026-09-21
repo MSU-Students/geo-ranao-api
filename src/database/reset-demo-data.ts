@@ -5,6 +5,7 @@ import { FishObservationEntity } from '../fish-observations/entities/fish-observ
 import { FishObservationPhotoEntity } from '../fish-observations/entities/fish-observation-photo.entity';
 import { WaterQualityReadingEntity } from '../water-quality/entities/water-quality-reading.entity';
 import { BathymetrySurveyEntity } from '../bathymetry/entities/bathymetry-survey.entity';
+import { BathymetryPointEntity } from '../bathymetry/entities/bathymetry-point.entity';
 import { ActivityLogEntity } from '../activity-log/entities/activity-log.entity';
 
 // Standalone script — runs outside Nest's DI container (same as data-source.ts
@@ -33,6 +34,7 @@ async function reset() {
   const fishRepo = dataSource.getRepository(FishObservationEntity);
   const wqRepo = dataSource.getRepository(WaterQualityReadingEntity);
   const bathyRepo = dataSource.getRepository(BathymetrySurveyEntity);
+  const bathyPointRepo = dataSource.getRepository(BathymetryPointEntity);
   const logRepo = dataSource.getRepository(ActivityLogEntity);
   const userRepo = dataSource.getRepository(UserEntity);
 
@@ -52,6 +54,17 @@ async function reset() {
 
   const bathyResult = await bathyRepo.createQueryBuilder().delete().execute();
   console.log(`Deleted ${bathyResult.affected ?? 0} bathymetry survey(s).`);
+
+  // The fixed grid itself (bathymetry_points' rows/locations) is reference
+  // data like `stations` — kept. Only the depth readings surveys wrote onto
+  // it are test data, so those get cleared back to "no data yet" here.
+  const bathyPointResult = await bathyPointRepo
+    .createQueryBuilder()
+    .update()
+    .set({ currentDepth: null, lastSurveyId: null, lastUpdatedAt: null })
+    .where('"currentDepth" IS NOT NULL')
+    .execute();
+  console.log(`Cleared depth data from ${bathyPointResult.affected ?? 0} fixed bathymetry point(s).`);
 
   const logResult = await logRepo.createQueryBuilder().delete().execute();
   console.log(`Deleted ${logResult.affected ?? 0} activity log entr(y/ies).`);

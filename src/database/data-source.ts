@@ -8,6 +8,7 @@ import { FishObservationPhotoEntity } from '../fish-observations/entities/fish-o
 import { WaterQualityReadingEntity } from '../water-quality/entities/water-quality-reading.entity';
 import { BathymetrySurveyEntity } from '../bathymetry/entities/bathymetry-survey.entity';
 import { BathymetrySoundingEntity } from '../bathymetry/entities/bathymetry-sounding.entity';
+import { BathymetryPointEntity } from '../bathymetry/entities/bathymetry-point.entity';
 
 // Used by the TypeORM CLI (`yarn typeorm`, `yarn migration:*`) and the seed
 // script — anything that runs outside Nest's DI container, where
@@ -23,6 +24,7 @@ export default new DataSource(
       WaterQualityReadingEntity,
       BathymetrySurveyEntity,
       BathymetrySoundingEntity,
+      BathymetryPointEntity,
     ],
     [__dirname + '/migrations/*{.ts,.js}'],
   ),

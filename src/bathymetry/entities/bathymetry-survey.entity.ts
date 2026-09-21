@@ -8,7 +8,6 @@ import {
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
-import { latOf, lngOf } from '../../common/geo';
 import { BathymetrySoundingEntity } from './bathymetry-sounding.entity';
 
 export enum ReviewStatus {
@@ -25,9 +24,10 @@ export interface DepthSounding {
 
 // A researcher-submitted set of raw depth soundings, cleaned client-side
 // (deduplicated, range-checked, filtered to the lake boundary, outliers
-// flagged) before submission. Interpolating the points into a grid and
-// extracting contour lines happens on demand wherever the survey is
-// rendered (buildDepthGridFromPoints / marchContourLevel on the frontend).
+// flagged) before submission, then snapped server-side onto the fixed
+// bathymetry_points grid — see BathymetryService.create. `pointCount` is
+// the raw upload size; `pointsUpdated` is how many fixed points it actually
+// touched after snapping/averaging, which is what bounds storage/rendering.
 @Entity('bathymetry_surveys')
 export class BathymetrySurveyEntity {
   @PrimaryGeneratedColumn()
@@ -43,10 +43,11 @@ export class BathymetrySurveyEntity {
   @Column({ type: 'date' })
   surveyDate: string;
 
-  // Individual soundings live in bathymetry_soundings (one PostGIS point +
-  // depth per row, see that entity) so they can be spatially indexed and
-  // queried on their own — `points` below is reassembled from that relation
-  // on load, in the same [{lat,lng,depth}] shape clients already use.
+  // Per-(fixed point) readings this survey contributed — an audit trail,
+  // not the render source (see BathymetryPointEntity.currentDepth for
+  // that). `points` below is reassembled from it, in the same
+  // [{lat,lng,depth}] shape clients already use, one row per fixed point
+  // this survey touched (not one row per raw uploaded sounding).
   @OneToMany(() => BathymetrySoundingEntity, (sounding) => sounding.survey)
   soundings?: BathymetrySoundingEntity[];
 
@@ -60,6 +61,13 @@ export class BathymetrySurveyEntity {
   // for transparency, never hidden.
   @Column({ type: 'int', default: 0 })
   cleanedCount: number;
+
+  // How many distinct fixed points this survey actually updated, after
+  // snapping every (post-cleaning) raw sounding to its nearest fixed point
+  // and averaging. Always <= the total fixed-point grid size, regardless
+  // of how large pointCount is.
+  @Column({ type: 'int', default: 0 })
+  pointsUpdated: number;
 
   @Column({ type: 'enum', enum: ReviewStatus, default: ReviewStatus.PENDING })
   reviewStatus: ReviewStatus;
@@ -82,11 +90,13 @@ export class BathymetrySurveyEntity {
   @AfterLoad()
   private hydratePoints(): void {
     if (this.soundings) {
-      this.points = this.soundings.map((sounding) => ({
-        lat: latOf(sounding.location),
-        lng: lngOf(sounding.location),
-        depth: sounding.depth,
-      }));
+      this.points = this.soundings
+        .filter((sounding) => sounding.point)
+        .map((sounding) => ({
+          lat: sounding.point.lat,
+          lng: sounding.point.lng,
+          depth: sounding.depth,
+        }));
       this.soundings = undefined;
     }
   }

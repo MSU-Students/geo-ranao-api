@@ -55,13 +55,6 @@ export class BathymetryController {
     return this.bathymetryService.findAll({ status: ReviewStatus.APPROVED });
   }
 
-  @Get('active')
-  @ApiOperation({ summary: 'The most recently approved bathymetry survey, if any — what the public map should render' })
-  @UseGuards(JwtAuthGuard)
-  async findActive() {
-    return this.bathymetryService.findLatestApproved();
-  }
-
   @Patch(':id/approve')
   @ApiOperation({ summary: 'Approve a pending bathymetry survey (ADMIN only)' })
   @UseGuards(JwtAuthGuard, RolesGuard)

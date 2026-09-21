@@ -24,7 +24,8 @@
     "migration:generate": "yarn typeorm migration:generate",
     "migration:run": "yarn typeorm migration:run",
     "migration:revert": "yarn typeorm migration:revert",
-    "seed": "ts-node -r tsconfig-paths/register src/database/seed.ts"
+    "seed": "ts-node -r tsconfig-paths/register src/database/seed.ts",
+    "seed:bathymetry-grid": "ts-node -r tsconfig-paths/register src/database/seed-bathymetry-grid.ts"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.1",
