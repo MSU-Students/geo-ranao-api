@@ -120,6 +120,21 @@ export class FishObservationsService {
     return { total: rows.length, byCategory, byConservationStatus };
   }
 
+  // Permanently retracts a bad upload — e.g. one approved without a proper
+  // QC pass. Any attached photos are removed from storage first (the DB row
+  // cascades automatically via the FK, but the underlying files wouldn't be
+  // — see purgeExpiredPhotos for the same cleanup done on a schedule).
+  async remove(id: number): Promise<FishObservationEntity> {
+    const observation = await this.findById(id);
+    if (!observation) throw new NotFoundException('Fish observation not found');
+
+    if (observation.photos?.length) {
+      await this.storageService.remove(observation.photos.map((p) => p.storagePath));
+    }
+    await this.repo.remove(observation);
+    return observation;
+  }
+
   async getPhoto(observationId: number, photoId: string): Promise<FishObservationPhotoEntity | null> {
     const photo = await this.photoRepo.findOne({ where: { id: photoId, observationId } });
     if (!photo) return null;

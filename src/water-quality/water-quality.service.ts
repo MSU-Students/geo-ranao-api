@@ -77,6 +77,24 @@ export class WaterQualityService {
     return this.repo.save(reading);
   }
 
+  // Permanently retracts a single (non-batch) reading — e.g. one approved
+  // without a proper QC pass.
+  async remove(id: number): Promise<WaterQualityReadingEntity> {
+    const reading = await this.findById(id);
+    if (!reading) throw new NotFoundException('Water quality reading not found');
+    await this.repo.remove(reading);
+    return reading;
+  }
+
+  // Permanently retracts every reading from one bulk-upload batch at once —
+  // the delete counterpart to setBatchReviewStatus.
+  async removeBatch(batchId: string): Promise<WaterQualityReadingEntity[]> {
+    const rows = await this.repo.find({ where: { batchId } });
+    if (rows.length === 0) throw new NotFoundException('Batch not found');
+    await this.repo.remove(rows);
+    return rows;
+  }
+
   async setBatchReviewStatus(
     batchId: string,
     status: ReviewStatus,

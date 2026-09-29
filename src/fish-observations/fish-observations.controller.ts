@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   NotFoundException,
   Param,
@@ -22,6 +23,7 @@ import { CreateFishObservationDto } from './dto/create-fish-observation.dto';
 import { FishCategory, ReviewStatus } from './entities/fish-observation.entity';
 import { fishPhotoMulterOptions } from './multer.config';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { OptionalJwtAuthGuard } from '../auth/guards/optional-jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { ReviewActionDto } from '../common/dto/review-action.dto';
@@ -31,6 +33,12 @@ import { ActivitySeverity } from '../activity-log/entities/activity-log.entity';
 
 interface AuthenticatedRequest {
   user: { sub: number; email: string; role: string };
+}
+
+// findAll runs behind OptionalJwtAuthGuard, so unlike every other handler
+// here, req.user may genuinely be absent (a public, logged-out visitor).
+interface OptionallyAuthenticatedRequest {
+  user?: { sub: number; email: string; role: string };
 }
 
 function describe(observation: { speciesCommon?: string | null; speciesScientific?: string | null; category: string }): string {
@@ -67,27 +75,32 @@ export class FishObservationsController {
     return created;
   }
 
+  // Optionally authenticated: a public, logged-out visitor gets approved
+  // data only (same as a researcher), a researcher can additionally ask for
+  // "mine" (including their own pending submissions), and an admin sees
+  // everything regardless.
   @Get()
-  @ApiOperation({ summary: 'List fish observations — researchers see approved data plus their own; admins see everything' })
-  @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: 'List fish observations — public/researchers see approved data (plus their own if logged in); admins see everything' })
+  @UseGuards(OptionalJwtAuthGuard)
   async findAll(
-    @Request() req: AuthenticatedRequest,
+    @Request() req: OptionallyAuthenticatedRequest,
     @Query('status') status?: ReviewStatus,
     @Query('category') category?: FishCategory,
     @Query('mine') mine?: string,
   ) {
-    if (mine === 'true') {
+    if (mine === 'true' && req.user) {
       return this.fishObservationsService.findAll({ researcherId: req.user.sub, status, category });
     }
-    if (req.user.role === 'ADMIN') {
+    if (req.user?.role === 'ADMIN') {
       return this.fishObservationsService.findAll({ status, category });
     }
     return this.fishObservationsService.findAll({ status: ReviewStatus.APPROVED, category });
   }
 
+  // Public — backs the public dashboard's summary cards, not just the
+  // admin/researcher view.
   @Get('summary')
   @ApiOperation({ summary: 'Aggregate counts by category and conservation status' })
-  @UseGuards(JwtAuthGuard)
   async summary(@Query('status') status?: ReviewStatus) {
     return this.fishObservationsService.summary(status ?? ReviewStatus.APPROVED);
   }
@@ -150,5 +163,26 @@ export class FishObservationsController {
       ActivitySeverity.NEGATIVE,
     );
     return updated;
+  }
+
+  @Delete(':id')
+  @ApiOperation({ summary: 'Permanently delete a fish observation — e.g. to retract a bad upload (ADMIN only)' })
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN')
+  async remove(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: ReviewActionDto,
+    @Request() req: AuthenticatedRequest,
+  ) {
+    const admin = await this.usersService.findById(req.user.sub);
+    const actor = admin?.fullName ?? req.user.email;
+    const removed = await this.fishObservationsService.remove(id);
+    await this.activityLogService.log(
+      actor,
+      'Fish Observation Deleted',
+      `${describe(removed)}${dto.reason ? ` — ${dto.reason}` : ''}`,
+      ActivitySeverity.NEGATIVE,
+    );
+    return { message: 'Fish observation deleted' };
   }
 }

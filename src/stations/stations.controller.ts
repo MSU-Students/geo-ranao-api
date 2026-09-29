@@ -1,15 +1,14 @@
-import { Controller, Get, UseGuards } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { Controller, Get } from '@nestjs/common';
+import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { StationsService } from './stations.service';
 
 @ApiTags('stations')
-@ApiBearerAuth()
-@UseGuards(JwtAuthGuard)
 @Controller('stations')
 export class StationsController {
   constructor(private readonly stationsService: StationsService) {}
 
+  // Deliberately public (no guard) — station pins are part of the public
+  // map/dashboard view, not just the admin/researcher one.
   @Get()
   @ApiOperation({ summary: 'List fixed water-quality sampling stations' })
   async findAll() {

@@ -1,9 +1,10 @@
-import { Body, Controller, Get, Param, ParseIntPipe, Patch, Post, Query, Request, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, ParseIntPipe, Patch, Post, Query, Request, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { WaterQualityService } from './water-quality.service';
 import { CreateWaterQualityReadingDto, CreateWaterQualityReadingsBulkDto } from './dto/create-water-quality-reading.dto';
 import { ReviewStatus } from './entities/water-quality-reading.entity';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { OptionalJwtAuthGuard } from '../auth/guards/optional-jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { ReviewActionDto } from '../common/dto/review-action.dto';
@@ -13,6 +14,12 @@ import { ActivitySeverity } from '../activity-log/entities/activity-log.entity';
 
 interface AuthenticatedRequest {
   user: { sub: number; email: string; role: string };
+}
+
+// findAll runs behind OptionalJwtAuthGuard, so unlike every other handler
+// here, req.user may genuinely be absent (a public, logged-out visitor).
+interface OptionallyAuthenticatedRequest {
+  user?: { sub: number; email: string; role: string };
 }
 
 @ApiTags('water-quality')
@@ -54,21 +61,25 @@ export class WaterQualityController {
     return created;
   }
 
+  // Optionally authenticated: a public, logged-out visitor gets approved
+  // data only (same as a researcher), a researcher can additionally ask for
+  // "mine" (including their own pending submissions), and an admin sees
+  // everything regardless.
   @Get()
-  @ApiOperation({ summary: 'List water quality readings — researchers see approved data plus their own; admins see everything' })
-  @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: 'List water quality readings — public/researchers see approved data (plus their own if logged in); admins see everything' })
+  @UseGuards(OptionalJwtAuthGuard)
   async findAll(
-    @Request() req: AuthenticatedRequest,
+    @Request() req: OptionallyAuthenticatedRequest,
     @Query('status') status?: ReviewStatus,
     @Query('siteId') siteId?: string,
     @Query('dateFrom') dateFrom?: string,
     @Query('dateTo') dateTo?: string,
     @Query('mine') mine?: string,
   ) {
-    if (mine === 'true') {
+    if (mine === 'true' && req.user) {
       return this.waterQualityService.findAll({ researcherId: req.user.sub, status, siteId, dateFrom, dateTo });
     }
-    if (req.user.role === 'ADMIN') {
+    if (req.user?.role === 'ADMIN') {
       return this.waterQualityService.findAll({ status, siteId, dateFrom, dateTo });
     }
     return this.waterQualityService.findAll({ status: ReviewStatus.APPROVED, siteId, dateFrom, dateTo });
@@ -153,5 +164,47 @@ export class WaterQualityController {
       ActivitySeverity.NEGATIVE,
     );
     return updated;
+  }
+
+  @Delete(':id')
+  @ApiOperation({ summary: 'Permanently delete a single (non-batch) water quality reading — e.g. to retract a bad upload (ADMIN only)' })
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN')
+  async remove(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: ReviewActionDto,
+    @Request() req: AuthenticatedRequest,
+  ) {
+    const admin = await this.usersService.findById(req.user.sub);
+    const actor = admin?.fullName ?? req.user.email;
+    const removed = await this.waterQualityService.remove(id);
+    await this.activityLogService.log(
+      actor,
+      'Water Quality Reading Deleted',
+      `Station ${removed.siteId} — ${removed.dateObserved}${dto.reason ? ` — ${dto.reason}` : ''}`,
+      ActivitySeverity.NEGATIVE,
+    );
+    return { message: 'Water quality reading deleted' };
+  }
+
+  @Delete('batch/:batchId')
+  @ApiOperation({ summary: 'Permanently delete every reading in a bulk-upload batch at once — e.g. to retract a bad upload (ADMIN only)' })
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN')
+  async removeBatch(
+    @Param('batchId') batchId: string,
+    @Body() dto: ReviewActionDto,
+    @Request() req: AuthenticatedRequest,
+  ) {
+    const admin = await this.usersService.findById(req.user.sub);
+    const actor = admin?.fullName ?? req.user.email;
+    const removed = await this.waterQualityService.removeBatch(batchId);
+    await this.activityLogService.log(
+      actor,
+      'Water Quality Batch Deleted',
+      `${removed.length} reading${removed.length === 1 ? '' : 's'}${dto.reason ? ` — ${dto.reason}` : ''}`,
+      ActivitySeverity.NEGATIVE,
+    );
+    return { message: 'Water quality batch deleted' };
   }
 }
