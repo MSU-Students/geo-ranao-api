@@ -7,6 +7,7 @@ import { ConfigService } from '@nestjs/config';
 import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
 import { JwtStrategy } from './jwt.strategy';
+import { requireJwtSecret } from './jwt-secret';
 
 @Module({
   imports: [
@@ -17,7 +18,7 @@ import { JwtStrategy } from './jwt.strategy';
       inject: [ConfigService],
       useFactory: (configService: ConfigService) => ({
         global: true,
-        secret: configService.get<string>('JWT_SECRET') ?? 'THE QUICK BROWN FOX JUMPS OVER THE LAZY DOG, haha',
+        secret: requireJwtSecret(configService),
         signOptions: { expiresIn: '1h' },
       }),
     }),
