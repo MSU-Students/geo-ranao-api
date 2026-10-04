@@ -25,6 +25,8 @@
     "migration:run": "yarn typeorm migration:run",
     "migration:revert": "yarn typeorm migration:revert",
     "seed": "ts-node -r tsconfig-paths/register src/database/seed.ts",
+    "seed:fish-timeseries": "ts-node -r tsconfig-paths/register src/database/seed-fish-timeseries.ts",
+    "seed:fish-timeseries:clear": "ts-node -r tsconfig-paths/register src/database/seed-fish-timeseries-clear.ts",
     "seed:bathymetry-grid": "ts-node -r tsconfig-paths/register src/database/seed-bathymetry-grid.ts",
     "admin:reset-password": "ts-node -r tsconfig-paths/register src/database/reset-admin-password.ts",
     "reset:demo-data": "ts-node -r tsconfig-paths/register src/database/reset-demo-data.ts"
