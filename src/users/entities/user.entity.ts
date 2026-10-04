@@ -31,8 +31,20 @@ export class UserEntity {
   @Column()
   email: string;
 
-  @Column()
-  password: string; // hashed
+  // Nullable — a Google-only account (see GoogleStrategy / AuthService)
+  // never sets a local password and can only ever log in via Google.
+  // Explicit `type: 'varchar'` because reflect-metadata can't infer a
+  // column type from a union (`string | null`) — see reviewedBy below for
+  // the same pattern already in this file.
+  @Column({ type: 'varchar', nullable: true })
+  password: string | null; // hashed
+
+  // Set once a Google identity is linked — either at signup (a brand-new
+  // Google user) or on first Google login for an email that already had a
+  // password account (see AuthService.findOrPrepareGoogleUser).
+  @Index({ unique: true })
+  @Column({ type: 'varchar', nullable: true })
+  googleId?: string | null;
 
   @Column({ type: 'enum', enum: UserRole, default: UserRole.RESEARCHER })
   role: UserRole;
