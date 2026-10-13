@@ -89,8 +89,8 @@ export class FishObservationEntity {
   barangay?: string | null;
 
   @Index()
-  @Column({ type: 'date' })
-  dateObserved: string;
+  @Column({ type: 'date', nullable: true })
+  dateObserved?: string | null;
 
   @Column({ type: 'text', nullable: true })
   notes?: string | null;
