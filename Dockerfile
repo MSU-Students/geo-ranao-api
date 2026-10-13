@@ -15,5 +15,5 @@ COPY package.json yarn.lock ./
 RUN yarn install --frozen-lockfile --production && yarn cache clean
 COPY --from=builder /app/dist ./dist
 
-EXPOSE 3333
+EXPOSE 8080
 CMD ["node", "dist/main.js"]
