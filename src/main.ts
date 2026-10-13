@@ -56,7 +56,6 @@ async function bootstrap() {
     helmet({
       contentSecurityPolicy: {
         directives: {
-          ...helmet.contentSecurityPolicy.getDefaultDirectives(),
           'upgrade-insecure-requests': [],
         },
       },
