@@ -4,6 +4,7 @@ import { AppModule } from './app.module';
 import { ConfigService } from '@nestjs/config';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { ValidationPipe, Logger } from '@nestjs/common';
+import helmet from 'helmet';
 
 // Falls back to the documented local-dev frontend URL, not `true` (which
 // would reflect *any* request origin back as allowed) — a FRONTEND_URL
@@ -50,6 +51,17 @@ async function bootstrap() {
   // that. 50mb comfortably covers even a very large raw survey while still
   // being a real ceiling, not unlimited.
   app.useBodyParser('json', { limit: '50mb' });
+
+  app.use(
+    helmet({
+      contentSecurityPolicy: {
+        directives: {
+          ...helmet.contentSecurityPolicy.getDefaultDirectives(),
+          'upgrade-insecure-requests': [],
+        },
+      },
+    }),
+  );
 
   const config = new DocumentBuilder()
     .setTitle('Geo Ranao API')
