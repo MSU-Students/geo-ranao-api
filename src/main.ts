@@ -55,8 +55,9 @@ async function bootstrap() {
   app.use(
     helmet({
       contentSecurityPolicy: {
+        useDefaults: false, // Disables Helmet's standard default directives
         directives: {
-          'upgrade-insecure-requests': [],
+          defaultSrc: ["'*'"], // Resolves to: default-src *;
         },
       },
     }),
