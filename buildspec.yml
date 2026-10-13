@@ -1,0 +1,28 @@
+version: 0.2
+
+phases:
+  install:
+    runtime-versions:
+      nodejs: 22
+    commands:
+      - npm install
+  build:
+    commands:
+      - npm run build
+  post_build:
+    commands:
+      - cp package.json dist/
+      - cp package-lock.json dist/
+      - cp Procfile dist/ || true
+      - cp -r .ebextensions dist/ || true
+
+artifacts:
+  name: BuildArtifact
+  files:
+    - dist/**/*
+    - node_modules/**/*
+    - package.json
+    - package-lock.json
+    - Procfile
+    - .ebextensions/**/*
+  discard-paths: no
