@@ -3,7 +3,9 @@ import { UsersService } from '../users/users.service';
 import { UserEntity, UserRole, AccountStatus } from '../users/entities/user.entity';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
+import * as crypto from 'crypto';
 import { ActivityLogService } from '../activity-log/activity-log.service';
+import { MailService } from './mail.service';
 import type { GoogleProfile } from './google.strategy';
 
 const LOGIN_BLOCKED_MESSAGES: Partial<Record<AccountStatus, string>> = {
@@ -21,6 +23,14 @@ const LOGIN_BLOCKED_MESSAGES: Partial<Record<AccountStatus, string>> = {
 const GOOGLE_SIGNUP_TOKEN_PURPOSE = 'google-signup';
 const GOOGLE_SIGNUP_TOKEN_TTL = '15m';
 
+// Same short-lived, purpose-scoped JWT approach as the Google-signup token
+// above, so a password reset needs no new database table. The token's `fp`
+// claim is a fingerprint of the password hash at issue time — once the
+// password actually changes, the fingerprint no longer matches, which makes
+// the link single-use without having to track "used" tokens anywhere.
+const PASSWORD_RESET_TOKEN_PURPOSE = 'password-reset';
+const PASSWORD_RESET_TOKEN_TTL = '30m';
+
 export type GoogleAuthOutcome =
   | { kind: 'login'; access_token: string; user: Omit<UserEntity, 'password'> }
   | { kind: 'blocked'; message: string }
@@ -32,6 +42,7 @@ export class AuthService {
     private usersService: UsersService,
     private jwtService: JwtService,
     private activityLogService: ActivityLogService,
+    private mailService: MailService,
   ) {}
 
   async registerUser(dto: {
@@ -171,5 +182,60 @@ export class AuthService {
     );
     const { password, ...rest } = created;
     return rest;
+  }
+
+  private passwordFingerprint(passwordHash: string): string {
+    return crypto.createHash('sha256').update(passwordHash).digest('hex').slice(0, 16);
+  }
+
+  // Always resolves, never throws — the caller (AuthController.forgotPassword)
+  // returns the same generic "check your inbox" response no matter what
+  // happened here, so this can't be used to probe which emails have accounts.
+  async requestPasswordReset(email: string, resetUrlBase: string): Promise<void> {
+    const user = await this.usersService.findByEmail(email);
+    if (!user) return;
+
+    if (!user.password) {
+      // Google-only account — nothing to reset, but tell the owner why
+      // instead of leaving them wondering why no email arrived.
+      await this.mailService.sendGoogleOnlyNotice(user.email);
+      return;
+    }
+
+    const token = await this.jwtService.signAsync(
+      {
+        purpose: PASSWORD_RESET_TOKEN_PURPOSE,
+        sub: user.id,
+        fp: this.passwordFingerprint(user.password),
+      },
+      { expiresIn: PASSWORD_RESET_TOKEN_TTL },
+    );
+    await this.mailService.sendPasswordResetEmail(user.email, `${resetUrlBase}?token=${token}`);
+    await this.activityLogService.log(
+      user.fullName,
+      'Requested Password Reset',
+      `Reset link emailed to ${user.email}`,
+    );
+  }
+
+  async resetPassword(token: string, newPassword: string): Promise<void> {
+    let payload: { purpose?: string; sub?: number; fp?: string };
+    try {
+      payload = await this.jwtService.verifyAsync(token);
+    } catch {
+      throw new UnauthorizedException('This reset link is invalid or has expired.');
+    }
+    if (payload.purpose !== PASSWORD_RESET_TOKEN_PURPOSE || !payload.sub || !payload.fp) {
+      throw new UnauthorizedException('This reset link is invalid or has expired.');
+    }
+
+    const user = await this.usersService.findById(payload.sub);
+    if (!user || !user.password || this.passwordFingerprint(user.password) !== payload.fp) {
+      throw new UnauthorizedException('This reset link is invalid or has already been used.');
+    }
+
+    const hashed = await bcrypt.hash(newPassword, 10);
+    await this.usersService.update(user.id, { password: hashed });
+    await this.activityLogService.log(user.fullName, 'Reset Password', 'Password changed via emailed reset link');
   }
 }

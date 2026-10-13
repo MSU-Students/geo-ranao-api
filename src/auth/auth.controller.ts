@@ -17,7 +17,15 @@ import type { Response } from 'express';
 import { AuthService } from './auth.service';
 import { UsersService } from '../users/users.service';
 import { ApiBearerAuth, ApiResponse, ApiTags, ApiOperation, ApiExcludeEndpoint } from '@nestjs/swagger';
-import { LoginDto, LoginResponseDto, RegisterDto, ProfileDto, CompleteGoogleSignupDto } from './dto';
+import {
+    LoginDto,
+    LoginResponseDto,
+    RegisterDto,
+    ProfileDto,
+    CompleteGoogleSignupDto,
+    ForgotPasswordDto,
+    ResetPasswordDto,
+} from './dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { GoogleConfiguredGuard } from './guards/google-configured.guard';
 import type { GoogleProfile } from './google.strategy';
@@ -76,6 +84,28 @@ export class AuthController {
         const user = await this.authService.validateUser(dto.email, dto.password);
         if (!user) throw new UnauthorizedException('Invalid email or password');
         return this.authService.loginUser(user);
+    }
+
+    // Always the same response whether or not the email is registered — never
+    // confirm or deny account existence through this endpoint.
+    @HttpCode(HttpStatus.OK)
+    @Post('forgot-password')
+    @ApiOperation({ summary: 'Request a password-reset email' })
+    @ApiResponse({ status: 200, description: 'Generic confirmation, regardless of whether the email exists' })
+    async forgotPassword(@Body() dto: ForgotPasswordDto) {
+        const resetUrlBase = `${this.frontendUrl()}/auth/reset-password`;
+        await this.authService.requestPasswordReset(dto.email, resetUrlBase);
+        return { message: "If that email is registered, we've sent instructions to reset your password." };
+    }
+
+    @HttpCode(HttpStatus.OK)
+    @Post('reset-password')
+    @ApiOperation({ summary: 'Reset a password using the token from the reset-password email' })
+    @ApiResponse({ status: 200, description: 'Password changed' })
+    @ApiResponse({ status: 401, description: 'Token invalid, expired, or already used' })
+    async resetPassword(@Body() dto: ResetPasswordDto) {
+        await this.authService.resetPassword(dto.token, dto.newPassword);
+        return { message: 'Password reset successfully. You can now log in.' };
     }
 
     @ApiBearerAuth()

@@ -3,3 +3,5 @@ export * from './login-reponse.dto';
 export * from './profile.dto';
 export * from './register.dto';
 export * from './complete-google-signup.dto';
+export * from './forgot-password.dto';
+export * from './reset-password.dto';

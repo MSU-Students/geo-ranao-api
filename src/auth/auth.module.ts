@@ -9,6 +9,7 @@ import { PassportModule } from '@nestjs/passport';
 import { JwtStrategy } from './jwt.strategy';
 import { GoogleStrategy } from './google.strategy';
 import { requireJwtSecret } from './jwt-secret';
+import { MailService } from './mail.service';
 
 @Module({
   imports: [
@@ -25,7 +26,7 @@ import { requireJwtSecret } from './jwt-secret';
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, JwtStrategy, GoogleStrategy],
+  providers: [AuthService, JwtStrategy, GoogleStrategy, MailService],
   exports: [AuthService],
 })
 export class AuthModule {}
